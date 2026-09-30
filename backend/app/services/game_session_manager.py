@@ -1,5 +1,5 @@
 ﻿"""Dedicated GameSessionManager responsible for active games, state isolation, and player views."""
-from typing import Dict, List, Optional, Tuple, Type
+from typing import Awaitable, Callable, Dict, List, Optional, Tuple, Type
 from pydantic import ValidationError
 from app.core.logging import logger
 from app.game_engine.action import (
@@ -48,6 +48,9 @@ class GameSessionManager:
     """
     Central authoritative manager for active game sessions.
     Completely isolates game instances from direct WebSocket/REST manipulation.
+
+    Sessions live in process memory only. Active games are NOT persisted and are lost
+    if the backend process restarts.
     """
 
     def __init__(self):
@@ -60,12 +63,31 @@ class GameSessionManager:
     def get_session(self, room_id: str) -> Optional[ActiveGameSession]:
         return self._sessions.get(room_id)
 
-    def create_session(self, room_id: str, game_type: str, player_ids: List[str]) -> ActiveGameSession:
-        """Creates and initializes a new game session using GameRegistry."""
+    def create_session(
+        self,
+        room_id: str,
+        game_type: str,
+        player_ids: List[str],
+        display_names: Optional[Dict[str, str]] = None,
+    ) -> ActiveGameSession:
+        """
+        Creates and initializes a new game session using GameRegistry.
+        Refuses to replace an existing session for the same room.
+        `display_names` must come from authoritative server/database state, never from clients.
+        """
+        if room_id in self._sessions:
+            raise ValueError(f"A game session is already active for room {room_id}")
+
         game_class: Type[BaseGame] = GameRegistry.get(game_type)
         game_instance = game_class(game_id=room_id, game_type=game_type)
 
         init_events = game_instance.initialize_game(player_ids)
+
+        # Platform identity (not a game rule): apply authoritative room display names
+        for pid, name in (display_names or {}).items():
+            player = game_instance.state.players.get(pid)
+            if player and name:
+                player.display_name = name
 
         session = ActiveGameSession(room_id=room_id, game_instance=game_instance)
         session.record_events(init_events)
@@ -105,6 +127,7 @@ class GameSessionManager:
         actor_player_id: str,
         action_type_str: str,
         payload: dict,
+        on_game_over: Optional[Callable[[str], Awaitable[None]]] = None,
     ) -> Tuple[bool, str]:
         """
         Processes a player action with strict security invariants:
@@ -158,17 +181,30 @@ class GameSessionManager:
         # 8. Broadcast player-specific state views (Zero Hidden Info leakage)
         await self.broadcast_player_views(room_id)
 
-        # 9. Clean up session if game has completed
+        # 9. Clean up session if game has completed. The final GAME_OVER views were
+        # broadcast above; removing the session rejects any further game actions.
         if session.game.is_game_complete():
             session.game.state.phase = GamePhase.GAME_OVER
             logger.info(f"Game session in room {room_id} has concluded.")
-            # Keep event history available, or clean up after grace period
+            self.remove_session(room_id)
+            if on_game_over:
+                await on_game_over(room_id)
 
         return True, "Action applied successfully"
 
+    def build_player_view(self, session: ActiveGameSession, player_id: str) -> PlayerGameView:
+        """
+        Builds a player's sanitized view. Connection status is derived from the live
+        ConnectionManager (the authoritative source), not from the game's own Player records.
+        """
+        player_view = session.game.get_player_view(player_id)
+        for public_player in player_view.players:
+            public_player.is_connected = manager.is_connected(session.room_id, public_player.id)
+        return player_view
+
     async def broadcast_player_views(self, room_id: str) -> None:
         """
-        Broadcasts individualized player views. Each connected player receives 
+        Broadcasts individualized player views. Each connected player receives
         ONLY their authorized view with private cards masked.
         """
         session = self.get_session(room_id)
@@ -176,7 +212,7 @@ class GameSessionManager:
             return
 
         for player_id in session.game.state.players:
-            player_view: PlayerGameView = session.game.get_player_view(player_id)
+            player_view: PlayerGameView = self.build_player_view(session, player_id)
             await manager.send_to_user(
                 room_id=room_id,
                 user_id=player_id,
@@ -192,7 +228,7 @@ class GameSessionManager:
         if not session:
             return
         if user_id in session.game.state.players:
-            player_view = session.game.get_player_view(user_id)
+            player_view = self.build_player_view(session, user_id)
             await manager.send_to_user(
                 room_id=room_id,
                 user_id=user_id,

@@ -110,6 +110,9 @@ export const HeartsTable: React.FC<HeartsTableProps> = ({
                 <div>
                   <h4 className="text-xs font-bold text-white leading-tight">{opp.display_name}</h4>
                   <span className="text-[11px] text-slate-400">Cards: {opp.card_count}</span>
+                  {!opp.is_connected && (
+                    <span className="ml-2 text-[10px] font-bold uppercase text-rose-400">Offline</span>
+                  )}
                 </div>
               </div>
 

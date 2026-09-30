@@ -198,6 +198,17 @@ class RoomService:
         return await RoomService.get_room_by_id(db, room_id)
 
     @staticmethod
+    async def set_room_status(db: AsyncSession, room_id: str, status: RoomStatus) -> Optional[Room]:
+        room_res = await db.execute(select(Room).where(Room.id == room_id))
+        room = room_res.scalar_one_or_none()
+        if not room:
+            return None
+        room.status = status
+        await db.commit()
+        logger.info(f"Room {room_id} status set to {status.value}")
+        return await RoomService.get_room_by_id(db, room_id)
+
+    @staticmethod
     async def update_settings(
         db: AsyncSession,
         room_id: str,

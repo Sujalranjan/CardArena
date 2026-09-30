@@ -21,6 +21,15 @@ export function useRoomWebSocket({
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
 
+  const onRoomStateRef = useRef(onRoomState);
+  onRoomStateRef.current = onRoomState;
+  const onGameStateRef = useRef(onGameState);
+  onGameStateRef.current = onGameState;
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+  const onGameStartedRef = useRef(onGameStarted);
+  onGameStartedRef.current = onGameStarted;
+
   const connect = useCallback(() => {
     const token = localStorage.getItem('cardarena_token');
     if (!token || !roomId) return;
@@ -49,25 +58,25 @@ export function useRoomWebSocket({
           case 'PLAYER_DISCONNECTED':
           case 'ROOM_SETTINGS_UPDATED':
             if (msg.payload?.room && onRoomState) {
-              onRoomState(msg.payload.room);
+              onRoomStateRef.current?.(msg.payload.room);
             }
             break;
           case 'GAME_STATE':
             if (msg.payload?.game_view && onGameState) {
-              onGameState(msg.payload.game_view);
+              onGameStateRef.current?.(msg.payload.game_view);
             }
             break;
           case 'GAME_STARTED':
             if (msg.payload?.room && onRoomState) {
-              onRoomState(msg.payload.room);
+              onRoomStateRef.current?.(msg.payload.room);
             }
             if (onGameStarted) {
-              onGameStarted(msg.payload);
+              onGameStartedRef.current?.(msg.payload);
             }
             break;
           case 'ERROR':
             if (onError) {
-              onError(msg.payload?.error || 'Unknown server error');
+              onErrorRef.current?.(msg.payload?.error || 'Unknown server error');
             }
             break;
           case 'PONG':
@@ -91,7 +100,7 @@ export function useRoomWebSocket({
     ws.onerror = (err) => {
       console.warn('WebSocket connection error:', err);
     };
-  }, [roomId, onRoomState, onGameState, onError, onGameStarted]);
+  }, [roomId]);
 
   useEffect(() => {
     connect();

@@ -27,6 +27,7 @@ export const CardView: React.FC<CardViewProps> = ({
 
   return (
     <div
+      data-testid={`card-${card.id}`}
       onClick={isPlayable || onClick ? onClick : undefined}
       className={`relative select-none transition-all duration-150 rounded-xl flex flex-col justify-between font-bold shadow-md ${
         small ? 'w-14 h-20 p-1.5 text-xs' : 'w-20 h-28 p-2.5 text-sm sm:w-24 sm:h-36 sm:p-3 sm:text-base'
@@ -40,18 +41,15 @@ export const CardView: React.FC<CardViewProps> = ({
           : 'opacity-90'
       }`}
     >
-      {/* Top Left Rank + Suit */}
       <div className="flex flex-col items-center leading-none">
         <span>{card.rank}</span>
         <span className="text-base">{suitSymbols[card.suit]}</span>
       </div>
 
-      {/* Center Large Suit Symbol */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25 text-3xl sm:text-4xl">
         {suitSymbols[card.suit]}
       </div>
 
-      {/* Bottom Right Rank + Suit (Inverted) */}
       <div className="flex flex-col items-center leading-none rotate-180 self-end">
         <span>{card.rank}</span>
         <span className="text-base">{suitSymbols[card.suit]}</span>

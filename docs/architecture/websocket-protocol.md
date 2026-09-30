@@ -18,7 +18,7 @@ All client messages adhere to:
 - `GET_ROOM_STATE`: Requests immediate authoritative snapshot of room metadata and players.
 - `READY`: Player marks themselves ready.
 - `NOT_READY`: Player marks themselves not ready.
-- `START_GAME`: Host launches the game session (validates minimum 2 players and player readiness).
+- `START_GAME`: Host launches the game session (validates minimum 2 players and player readiness). Only accepted while the room is `WAITING`; otherwise an `ERROR` is returned and any existing game session is left untouched.
 - `UPDATE_SETTINGS`: Host updates selected game mode or capacity.
 - `PING`: Keep-alive ping from client.
 
@@ -41,5 +41,11 @@ All server responses adhere to:
 - `PLAYER_DISCONNECTED`: Emitted when a peer temporarily loses connection.
 - `PLAYER_RECONNECTED`: Emitted when a peer reconnects.
 - `GAME_STARTED`: Broadcasted when host launches the game session.
+- `GAME_STATE`: Player-specific game view (own hand only). Re-sent to every player on game actions, disconnects and reconnects. `players[].is_connected` is derived from live WebSocket connections; `players[].display_name` comes from the authoritative user record.
+- `ROOM_STATE` with `"event": "GAME_OVER"`: Sent after the final `GAME_STATE` when a game concludes. The room moves to `FINISHED` and the in-memory game session is removed; further game actions are rejected.
 - `ERROR`: Emitted to offending socket when an action is rejected or unauthorized.
 - `PONG`: Keep-alive response.
+
+## 3. Game Session Lifetime
+
+Active game sessions are held in backend process memory (`GameSessionManager`) and are **not persisted**. A backend restart loses all in-progress games; rooms that were `PLAYING` at that moment remain `PLAYING` in the database with no session behind them. Restart persistence is not implemented.

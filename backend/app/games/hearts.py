@@ -15,7 +15,7 @@ from app.games.hearts_state import HeartsGameState, PassDirection, TrickCard
 class HeartsGame(BaseGame):
     """
     Standard American Hearts:
-    - 4 Players, 52 cards (13 each)
+    - Exactly 4 Players, 52 cards (13 each)
     - Passing: Left (R1), Right (R2), Across (R3), Hold/None (R4), repeating
     - Opening: Player with 2 of Clubs must lead 2♣
     - Point cards prohibited on first trick unless player holds only point cards
@@ -148,6 +148,10 @@ class HeartsGame(BaseGame):
         return self.state.player_order[target_idx]
 
     def validate_action(self, action: GameAction) -> Tuple[bool, str]:
+        # If game is already complete, no further actions can be taken
+        if self.state.phase == GamePhase.GAME_OVER:
+            return False, "Game has concluded. No further actions permitted."
+
         player_id = action.player_id
         player = self.state.players.get(player_id)
         if not player:
@@ -205,7 +209,6 @@ class HeartsGame(BaseGame):
             if self.state.hearts_round.is_first_trick:
                 is_point_card = (card.suit == Suit.HEARTS) or (card.suit == Suit.SPADES and card.rank == Rank.QUEEN)
                 if is_point_card:
-                    # Permitted only if player holds ONLY point cards
                     has_non_point = any(
                         not (c.suit == Suit.HEARTS or (c.suit == Suit.SPADES and c.rank == Rank.QUEEN))
                         for c in player.hand
@@ -341,12 +344,10 @@ class HeartsGame(BaseGame):
         trick = self.state.hearts_round.current_trick
         lead_suit = self.state.hearts_round.trick_lead_suit
 
-        # Highest card matching lead_suit wins
         eligible = [tc for tc in trick if tc.card.suit.value == lead_suit]
         winning_trick_card = max(eligible, key=lambda tc: RANK_VALUES[tc.card.rank])
         winner_id = winning_trick_card.player_id
 
-        # Calculate trick points
         trick_points = 0
         taken_cards = [tc.card for tc in trick]
         for c in taken_cards:
@@ -366,7 +367,7 @@ class HeartsGame(BaseGame):
         events: List[GameEvent] = [
             GameEvent(
                 game_id=self.game_id,
-                type=EventType.ROUND_COMPLETED,  # Trick completed
+                type=EventType.TRICK_COMPLETED,
                 actor_player_id=winner_id,
                 data={
                     "trick_winner_id": winner_id,
@@ -494,7 +495,6 @@ class HeartsGame(BaseGame):
         viewer = self.state.players.get(player_id)
         my_hand = list(viewer.hand) if viewer else []
 
-        # Masked public state
         public_state = {
             "round_number": self.state.hearts_round.round_number,
             "pass_direction": self.state.hearts_round.pass_direction.value,

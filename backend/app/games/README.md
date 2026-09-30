@@ -2,11 +2,12 @@
 
 This directory holds game rule modules implementing the `BaseGame` interface defined in `app.game_engine.game`.
 
-## Architecture Policy: Zero Game Rules in Phase 1
+## Implemented Games
+- **Hearts** (`hearts.py`) — see `docs/games/hearts.md`.
 
-As mandated by Phase 1 requirements:
-- No concrete card game rules (Hearts, 28, Teen Patti, Bluff, Napoleon, Joker) are implemented in Phase 1.
-- All future games must inherit from `app.game_engine.BaseGame` and register themselves with `@GameRegistry.register("<game_type>")`.
+## Architecture Policy
+- Player `display_name` is set by `GameSessionManager` from the authoritative room/user records, and `is_connected` in player views is derived from live WebSocket connections. Games should not maintain their own connection state.
+- All games must inherit from `app.game_engine.BaseGame` and register themselves with `@GameRegistry.register("<game_type>")`.
 
 ## Required Game Engine Contract
 
