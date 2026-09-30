@@ -43,4 +43,26 @@ export interface PlayerGameView {
   my_hand: Card[];
   public_state: HeartsPublicState;
   valid_actions: string[];
+  fairness?: FairnessRecord[];
+}
+
+/** Public provably-fair record; server_seed is null until the round is revealed. */
+export interface FairnessRecord {
+  game_id: string;
+  round_number: number;
+  algorithm: string;
+  commitment_scheme: string;
+  commitment: string;
+  deck_definition: string;
+  canonical_deck_sha256: string;
+  revealed: boolean;
+  server_seed: string | null;
+}
+
+/** Documented canonical deck served by GET /fairness/deck-definitions/{name}. */
+export interface DeckDefinition {
+  name: string;
+  algorithm: string;
+  cards: string[];
+  sha256: string;
 }

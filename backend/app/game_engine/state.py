@@ -66,3 +66,5 @@ class PlayerGameView(BaseModel):
     # Public table state (trump suit, current trick, discard count, etc.)
     public_state: Dict[str, Any] = Field(default_factory=dict)
     valid_actions: List[str] = Field(default_factory=list)
+    # Public provably-fair records (commitments; seeds only for revealed rounds)
+    fairness: List[Dict[str, Any]] = Field(default_factory=list)

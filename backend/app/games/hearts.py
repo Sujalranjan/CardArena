@@ -2,7 +2,6 @@
 from typing import Dict, List, Optional, Tuple
 from app.game_engine.action import ActionType, EventType, GameAction, GameEvent
 from app.game_engine.card import Card, Rank, Suit
-from app.game_engine.deck import Deck
 from app.game_engine.game import BaseGame
 from app.game_engine.player import Player, PlayerPublicView
 from app.game_engine.registry import GameRegistry
@@ -66,9 +65,9 @@ class HeartsGame(BaseGame):
         return []
 
     def start_round(self, round_number: int) -> List[GameEvent]:
-        """Shuffles, deals 13 cards to each player, and configures round phase."""
-        deck = Deck()
-        deck.shuffle()
+        """Commits to the round's shuffle, deals 13 cards to each player, and configures round phase."""
+        # Commitment is created before the deck exists and before any card is dealt
+        deck, commit_event = self.create_committed_deck(round_number)
         hands = deck.deal(num_players=4, cards_per_player=13)
 
         # Sort each player's hand by suit and rank for clean UX
@@ -103,6 +102,7 @@ class HeartsGame(BaseGame):
         self.state.hearts_round.round_points = {pid: 0 for pid in self.state.player_order}
 
         events: List[GameEvent] = [
+            commit_event,
             GameEvent(
                 game_id=self.game_id,
                 type=EventType.GAME_STARTED,
@@ -427,6 +427,11 @@ class HeartsGame(BaseGame):
                 },
             )
         ]
+
+        # All 13 tricks are played, so this round's deal is no longer hidden: reveal its seed
+        reveal_event = self.reveal_fairness(self.state.hearts_round.round_number)
+        if reveal_event:
+            events.append(reveal_event)
 
         if self.is_game_complete():
             self.state.phase = GamePhase.GAME_OVER

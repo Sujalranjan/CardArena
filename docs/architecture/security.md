@@ -65,10 +65,12 @@ Any extraneous fields (such as injected scores, winner overrides, or unauthorize
 
 CardArena draws a clear architectural distinction between unpredictable shuffling and verifiable commitment schemes:
 
-### CSPRNG (Current Implementation)
-- Built on Python's `secrets.randbelow` backed by the host operating system's cryptographic random source (`/dev/urandom` / `BCryptGenRandom`).
-- **Guarantee**: Shuffles and card draws are completely unpredictable to players and cannot be manipulated via pseudo-random seed reconstruction.
+### CSPRNG
+- `Deck.shuffle()` uses `secrets.randbelow`, backed by the operating system's cryptographic random source (`/dev/urandom` / `BCryptGenRandom`). It remains available for games that do not use commitments.
+- **Guarantee**: Shuffles are unpredictable to players, but not verifiable after the fact.
 
-### Provably Fair (Phase 3 Roadmap)
-- Uses cryptographic commitment (SHA-256 hash commitments published before play, secret server seed, and client seed revealed post-round).
-- **Guarantee**: Enables independent third-party verification that the deck sequence was established before round start and never altered mid-game.
+### Provably Fair Commit/Reveal (Implemented; used by Hearts)
+- A 256-bit CSPRNG server seed per round; `SHA-256(seed)` is published before the deal; the deck order is derived deterministically from the seed (HMAC-SHA256 stream + unbiased Fisher-Yates); the seed is revealed when the round ends.
+- **Guarantee**: Anyone can verify the deal's deck order was fixed when the commitment was published and not altered afterwards.
+- **Not guaranteed**: that the seed itself was chosen randomly (there is no client seed in v1), absence of server/player collusion, or that the deployed code matches the documentation.
+- Full specification and limitations: [provably-fair.md](provably-fair.md).

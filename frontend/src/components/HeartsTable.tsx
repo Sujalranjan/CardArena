@@ -1,6 +1,8 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import type { PlayerGameView } from '../types';
+import type { DealtHandSnapshot } from '../fairness/verify';
 import { CardView } from './CardView';
+import { FairnessPanel } from './FairnessPanel';
 import { Flame, ShieldAlert, Award, ArrowRight, UserCheck, HelpCircle } from 'lucide-react';
 
 interface HeartsTableProps {
@@ -23,6 +25,29 @@ export const HeartsTable: React.FC<HeartsTableProps> = ({
   const isMyTurn = gameView.current_turn_player_id === myId;
   const publicState = gameView.public_state;
   const hasPassed = publicState.has_passed?.[myId] || false;
+
+  // Remember this client's hand exactly as dealt (before any pass or play) so a revealed
+  // round can be checked against it. Only kept in memory for this page session.
+  const dealtHandsRef = useRef<Map<string, DealtHandSnapshot>>(new Map());
+  useEffect(() => {
+    const key = `${gameView.game_id}:${gameView.round_number}`;
+    if (dealtHandsRef.current.has(key)) return;
+    const me = gameView.players.find((p) => p.id === myId);
+    const untouchedPassingHand = gameView.phase === 'STARTING' && !hasPassed;
+    const untouchedHoldHand =
+      gameView.phase === 'IN_PROGRESS' &&
+      publicState.pass_direction === 'NONE' &&
+      publicState.completed_tricks === 0 &&
+      !publicState.current_trick?.some((tc) => tc.player_id === myId);
+    if (me && (untouchedPassingHand || untouchedHoldHand) && gameView.my_hand.length > 0) {
+      dealtHandsRef.current.set(key, {
+        cardIds: gameView.my_hand.map((c) => c.id),
+        seat: me.seat,
+        numPlayers: gameView.players.length,
+        cardsPerPlayer: gameView.my_hand.length,
+      });
+    }
+  }, [gameView, myId, hasPassed, publicState]);
 
   const handleCardClick = (cardId: string) => {
     if (isPassingPhase && !hasPassed) {
@@ -205,6 +230,14 @@ export const HeartsTable: React.FC<HeartsTableProps> = ({
           })}
         </div>
       </div>
+
+      <FairnessPanel
+        records={gameView.fairness ?? []}
+        currentRound={gameView.round_number}
+        getDealtHand={(roundNumber) =>
+          dealtHandsRef.current.get(`${gameView.game_id}:${roundNumber}`)
+        }
+      />
     </div>
   );
 };

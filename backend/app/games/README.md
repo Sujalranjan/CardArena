@@ -30,6 +30,21 @@ class HeartsGame(BaseGame):
     def get_player_view(self, player_id: str) -> PlayerGameView: ...
 ```
 
+## Provably Fair Dealing
+
+Games should obtain their deck from the shared commit/reveal mechanism instead of `Deck.shuffle()`:
+
+```python
+deck, commit_event = self.create_committed_deck(round_number)          # standard-52
+# or: self.create_committed_deck(round_number, canonical_cards=cards, deck_definition="<documented-name>")
+events.append(commit_event)            # must be emitted with (before) the deal
+...
+reveal_event = self.reveal_fairness(round_number)   # once that deal no longer hides anything
+```
+
+Any round still unrevealed at `GAME_OVER` is revealed by `GameSessionManager`. A custom
+`deck_definition` must be documented in `docs/architecture/provably-fair.md` so players can verify it.
+
 ## Planned Games Roadmap
 1. **Hearts**: 4-player trick avoidance game
 2. **28**: Strategic bidding and trump suit trick play

@@ -42,6 +42,9 @@ All server responses adhere to:
 - `PLAYER_RECONNECTED`: Emitted when a peer reconnects.
 - `GAME_STARTED`: Broadcasted when host launches the game session.
 - `GAME_STATE`: Player-specific game view (own hand only). Re-sent to every player on game actions, disconnects and reconnects. `players[].is_connected` is derived from live WebSocket connections; `players[].display_name` comes from the authoritative user record.
+- `FAIRNESS_COMMITTED`: `{"fairness": <public record, server_seed null>, "sequence_number": n}`. Sent when a round's shuffle is committed, before any `GAME_STATE` containing that round's cards. See [provably-fair.md](provably-fair.md).
+- `FAIRNESS_REVEALED`: `{"fairness": <public record with server_seed>, "sequence_number": n}`. Sent when a round ends (or at game over for any unrevealed round).
+- `GAME_STATE.game_view.fairness`: list of public fairness records for the session (seeds only for revealed rounds); also delivered on reconnect.
 - `ROOM_STATE` with `"event": "GAME_OVER"`: Sent after the final `GAME_STATE` when a game concludes. The room moves to `FINISHED` and the in-memory game session is removed; further game actions are rejected.
 - `ERROR`: Emitted to offending socket when an action is rejected or unauthorized.
 - `PONG`: Keep-alive response.

@@ -1,4 +1,4 @@
-﻿import type { AuthResponse, Room, User } from '../types';
+﻿import type { AuthResponse, DeckDefinition, Room, User } from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -98,6 +98,11 @@ export class ApiService {
     return this.request<void>(`/rooms/${roomId}/leave`, {
       method: 'POST',
     });
+  }
+
+  // Fairness Endpoints (public specification data)
+  public static async getDeckDefinition(name: string): Promise<DeckDefinition> {
+    return this.request<DeckDefinition>(`/fairness/deck-definitions/${encodeURIComponent(name)}`);
   }
 
   public static async updateSettings(

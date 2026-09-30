@@ -10,6 +10,7 @@ from app.game_engine.action import (
     DiscardCardPayload,
     DrawCardPayload,
     EndTurnPayload,
+    EventType,
     FoldPayload,
     GameAction,
     GameEvent,
@@ -22,6 +23,9 @@ from app.game_engine.state import GamePhase, PlayerGameView
 from app.websocket.connection_manager import manager
 from app.schemas.schemas import WSServerMessage
 
+# Events whose data is public by construction (never contains an unrevealed seed)
+PUBLIC_FAIRNESS_EVENTS = {EventType.FAIRNESS_COMMITTED, EventType.FAIRNESS_REVEALED}
+
 
 class ActiveGameSession:
     """Manages runtime state and event history for a single game session."""
@@ -31,6 +35,8 @@ class ActiveGameSession:
         self.game: BaseGame = game_instance
         self.event_history: List[GameEvent] = []
         self._sequence_counter: int = 0
+        # Public fairness events not yet sent to the room
+        self.pending_fairness_events: List[GameEvent] = []
 
     @property
     def next_sequence(self) -> int:
@@ -42,6 +48,8 @@ class ActiveGameSession:
             if ev.sequence_number == 0:
                 ev.sequence_number = self.next_sequence
             self.event_history.append(ev)
+            if ev.type in PUBLIC_FAIRNESS_EVENTS:
+                self.pending_fairness_events.append(ev)
 
 
 class GameSessionManager:
@@ -178,6 +186,10 @@ class GameSessionManager:
             logger.error(f"Error applying action in room {room_id}: {e}")
             return False, f"Game engine error: {str(e)}"
 
+        # Game over: no round is active any more, so every outstanding seed is revealable
+        if session.game.is_game_complete():
+            session.record_events(session.game.reveal_all_fairness())
+
         # 8. Broadcast player-specific state views (Zero Hidden Info leakage)
         await self.broadcast_player_views(room_id)
 
@@ -200,16 +212,29 @@ class GameSessionManager:
         player_view = session.game.get_player_view(player_id)
         for public_player in player_view.players:
             public_player.is_connected = manager.is_connected(session.room_id, public_player.id)
+        player_view.fairness = session.game.fairness.public_records()
         return player_view
 
     async def broadcast_player_views(self, room_id: str) -> None:
         """
         Broadcasts individualized player views. Each connected player receives
         ONLY their authorized view with private cards masked.
+        Pending fairness commitments/reveals are sent first, so a round's commitment
+        reaches clients before any view containing that round's dealt cards.
         """
         session = self.get_session(room_id)
         if not session:
             return
+
+        pending, session.pending_fairness_events = session.pending_fairness_events, []
+        for event in pending:
+            await manager.broadcast_to_room(
+                room_id=room_id,
+                message=WSServerMessage(
+                    type=event.type.value,
+                    payload={**event.data, "sequence_number": event.sequence_number},
+                ),
+            )
 
         for player_id in session.game.state.players:
             player_view: PlayerGameView = self.build_player_view(session, player_id)
