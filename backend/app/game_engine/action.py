@@ -3,7 +3,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 import uuid
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+from app.game_engine.card import Rank
 
 
 class ActionType(str, Enum):
@@ -22,6 +23,9 @@ class ActionType(str, Enum):
     FOLD = "FOLD"
     CHALLENGE = "CHALLENGE"
     END_TURN = "END_TURN"
+
+    PLAY_CARDS = "PLAY_CARDS"
+    CALL_BLUFF = "CALL_BLUFF"
 
 
 # ---------------- Typed Specific Client Action Payloads ----------------
@@ -62,6 +66,22 @@ class EndTurnPayload(BaseModel):
     pass
 
 
+class PlayCardsPayload(BaseModel):
+    """Face-down multi-card play with a declared rank. Unknown fields are rejected."""
+    model_config = ConfigDict(extra="forbid")
+
+    card_ids: List[str] = Field(min_length=1)
+    declared_rank: Rank
+    declared_quantity: Optional[int] = Field(
+        default=None, description="Optional; when present it must equal len(card_ids)"
+    )
+
+
+class CallBluffPayload(BaseModel):
+    """Challenges the immediately previous play. Carries no client-supplied information."""
+    model_config = ConfigDict(extra="forbid")
+
+
 class GameAction(BaseModel):
     type: ActionType
     player_id: str = Field(description="Server-derived verified player ID")
@@ -89,6 +109,8 @@ class EventType(str, Enum):
     PLAYER_FOLDED = "PLAYER_FOLDED"
     CHALLENGE_ISSUED = "CHALLENGE_ISSUED"
     TURN_CHANGED = "TURN_CHANGED"
+    CARDS_PLAYED = "CARDS_PLAYED"
+    CHALLENGE_RESOLVED = "CHALLENGE_RESOLVED"
     FAIRNESS_COMMITTED = "FAIRNESS_COMMITTED"
     FAIRNESS_REVEALED = "FAIRNESS_REVEALED"
     PLAYER_DISCONNECTED = "PLAYER_DISCONNECTED"

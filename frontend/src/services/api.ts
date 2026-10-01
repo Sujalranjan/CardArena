@@ -1,23 +1,37 @@
 ﻿import type { AuthResponse, DeckDefinition, Room, User } from '../types';
 
 const API_BASE = '/api/v1';
+const TOKEN_KEY = 'cardarena_token';
+const USER_KEY = 'cardarena_user';
+
+/**
+ * Identity is stored per browser tab (sessionStorage). localStorage is shared by every tab of
+ * the origin, so a login in one tab silently changed the identity of all other open tabs; their
+ * next WebSocket (re)connect then authenticated as that other user and displaced its socket.
+ */
+const identityStorage = (): Storage => sessionStorage;
 
 export class ApiService {
-  private static getToken(): string | null {
-    return localStorage.getItem('cardarena_token');
+  public static getToken(): string | null {
+    return identityStorage().getItem(TOKEN_KEY);
   }
 
   public static setToken(token: string): void {
-    localStorage.setItem('cardarena_token', token);
+    identityStorage().setItem(TOKEN_KEY, token);
+    // Drop credentials left in shared storage by earlier versions
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
   }
 
   public static clearToken(): void {
-    localStorage.removeItem('cardarena_token');
-    localStorage.removeItem('cardarena_user');
+    identityStorage().removeItem(TOKEN_KEY);
+    identityStorage().removeItem(USER_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
   }
 
   public static getStoredUser(): User | null {
-    const raw = localStorage.getItem('cardarena_user');
+    const raw = identityStorage().getItem(USER_KEY);
     if (!raw) return null;
     try {
       return JSON.parse(raw);
@@ -27,7 +41,7 @@ export class ApiService {
   }
 
   public static setStoredUser(user: User): void {
-    localStorage.setItem('cardarena_user', JSON.stringify(user));
+    identityStorage().setItem(USER_KEY, JSON.stringify(user));
   }
 
   private static async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {

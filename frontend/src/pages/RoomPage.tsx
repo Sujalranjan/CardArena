@@ -2,8 +2,9 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { ApiService } from '../services/api';
 import { useRoomWebSocket } from '../hooks/useRoomWebSocket';
-import type { PlayerGameView, Room } from '../types';
+import type { AnyGameView, BluffGameView, PlayerGameView, Room } from '../types';
 import { HeartsTable } from '../components/HeartsTable';
+import { BluffTable } from '../components/BluffTable';
 import {
   Crown,
   Users,
@@ -23,7 +24,7 @@ export const RoomPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [room, setRoom] = useState<Room | null>(null);
-  const [gameView, setGameView] = useState<PlayerGameView | null>(null);
+  const [gameView, setGameView] = useState<AnyGameView | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [copied, setCopied] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -53,6 +54,8 @@ export const RoomPage: React.FC = () => {
     startGame,
     passCards,
     playCard,
+    playCards,
+    callBluff,
   } = useRoomWebSocket({
     roomId: room?.id || '',
     onRoomState: (updatedRoom) => {
@@ -68,7 +71,7 @@ export const RoomPage: React.FC = () => {
       setTimeout(() => setErrorMsg(null), 5000);
     },
     onGameStarted: (payload) => {
-      setGameStartedBanner(payload.message || 'Hearts match has started!');
+      setGameStartedBanner(payload.message || 'Match has started!');
     },
   });
 
@@ -127,7 +130,7 @@ export const RoomPage: React.FC = () => {
             <span className="font-bold text-sm">{gameStartedBanner}</span>
           </div>
           <span className="text-xs uppercase tracking-wider font-semibold text-emerald-400">
-            Hearts Session Active
+            {room.selected_game.replace('_', ' ')} Session Active
           </span>
         </div>
       )}
@@ -220,10 +223,16 @@ export const RoomPage: React.FC = () => {
         </div>
       </div>
 
-      {/* RENDER ACTIVE HEARTS GAME TABLE IF SESSION RUNNING */}
-      {gameView ? (
+      {/* RENDER THE ACTIVE GAME TABLE FOR THE SESSION'S GAME TYPE */}
+      {gameView && gameView.game_type === 'bluff' ? (
+        <BluffTable
+          gameView={gameView as BluffGameView}
+          onPlayCards={playCards}
+          onCallBluff={callBluff}
+        />
+      ) : gameView ? (
         <HeartsTable
-          gameView={gameView}
+          gameView={gameView as PlayerGameView}
           onPlayCard={playCard}
           onPassCards={passCards}
         />
@@ -233,7 +242,7 @@ export const RoomPage: React.FC = () => {
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-20">
             <span className="text-7xl font-black tracking-widest text-slate-500">CARDARENA</span>
             <span className="text-xs uppercase tracking-widest font-mono text-slate-400 mt-2">
-              HEARTS PRE-GAME LOBBY
+              {room.selected_game.replace('_', ' ')} PRE-GAME LOBBY
             </span>
           </div>
 

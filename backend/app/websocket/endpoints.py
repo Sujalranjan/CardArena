@@ -143,6 +143,8 @@ async def room_websocket_endpoint(websocket: WebSocket, room_id: str):
                 ActionType.FOLD.value,
                 ActionType.CHALLENGE.value,
                 ActionType.END_TURN.value,
+                ActionType.PLAY_CARDS.value,
+                ActionType.CALL_BLUFF.value,
             }
 
             if msg_type in in_game_action_types:

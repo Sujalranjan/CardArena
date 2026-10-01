@@ -1,10 +1,11 @@
 ﻿import { useEffect, useRef, useState, useCallback } from 'react';
-import type { PlayerGameView, Room, WSMessage } from '../types';
+import type { AnyGameView, Room, WSMessage } from '../types';
+import { ApiService } from '../services/api';
 
 export interface UseRoomWebSocketOptions {
   roomId: string;
   onRoomState?: (room: Room) => void;
-  onGameState?: (gameView: PlayerGameView) => void;
+  onGameState?: (gameView: AnyGameView) => void;
   onError?: (error: string) => void;
   onGameStarted?: (payload: any) => void;
 }
@@ -31,7 +32,7 @@ export function useRoomWebSocket({
   onGameStartedRef.current = onGameStarted;
 
   const connect = useCallback(() => {
-    const token = localStorage.getItem('cardarena_token');
+    const token = ApiService.getToken();
     if (!token || !roomId) return;
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -138,6 +139,14 @@ export function useRoomWebSocket({
     send('PLAY_CARD', { card_id });
   }, [send]);
 
+  const playCards = useCallback((card_ids: string[], declared_rank: string) => {
+    send('PLAY_CARDS', { card_ids, declared_rank });
+  }, [send]);
+
+  const callBluff = useCallback(() => {
+    send('CALL_BLUFF', {});
+  }, [send]);
+
   const updateSettings = useCallback((selected_game?: string, max_players?: number) => {
     send('UPDATE_SETTINGS', { selected_game, max_players });
   }, [send]);
@@ -150,6 +159,8 @@ export function useRoomWebSocket({
     startGame,
     passCards,
     playCard,
+    playCards,
+    callBluff,
     updateSettings,
   };
 }

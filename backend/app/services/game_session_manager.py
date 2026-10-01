@@ -16,6 +16,8 @@ from app.game_engine.action import (
     GameEvent,
     PassCardPayload,
     PlayCardPayload,
+    PlayCardsPayload,
+    CallBluffPayload,
 )
 from app.game_engine.game import BaseGame
 from app.game_engine.registry import GameRegistry
@@ -116,6 +118,8 @@ class GameSessionManager:
             ActionType.FOLD: FoldPayload,
             ActionType.CHALLENGE: ChallengePayload,
             ActionType.END_TURN: EndTurnPayload,
+            ActionType.PLAY_CARDS: PlayCardsPayload,
+            ActionType.CALL_BLUFF: CallBluffPayload,
         }
 
         model_cls = payload_map.get(action_type)

@@ -78,3 +78,17 @@ class Deck:
                 if card:
                     hands[p_idx].append(card)
         return hands
+
+    def deal_all(self, num_players: int) -> List[List[Card]]:
+        """
+        Deals the entire deck round-robin with the same order as deal() (draw from the end,
+        seat 0 first). When the deck does not divide evenly, lower seats get one extra card.
+        """
+        if num_players < 1:
+            raise ValueError("num_players must be at least 1")
+        hands: List[List[Card]] = [[] for _ in range(num_players)]
+        p_idx = 0
+        while self._cards:
+            hands[p_idx].append(self._cards.pop())
+            p_idx = (p_idx + 1) % num_players
+        return hands
